@@ -19,7 +19,7 @@ export default function ClientNavigation({ children }: ClientNavigationProps) {
     if (heightStr) {
       blockHeight = parseInt(heightStr, 10);
     }
-  } else if (pathname === "/") {
+  } else if (pathname === "/table") {
     // On home page, we're viewing the being-mined block
     blockHeight = -1;
   }

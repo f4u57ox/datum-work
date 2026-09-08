@@ -30,10 +30,11 @@ export function GlobalMenu() {
       
       {/* GitHub link - always present on the far right */}
       <a
-        href="https://github.com/bboerst/stratum-work"
+        href="https://github.com/f4u57ox/datum-work"
         target="_blank"
         rel="noopener noreferrer"
-        title="GitHub Repository"
+        title="Datum Work on GitHub"
+        aria-label="Datum Work on GitHub"
         className="w-8 h-8 text-foreground hover:text-blue-500 transition-colors duration-200"
       >
         <svg

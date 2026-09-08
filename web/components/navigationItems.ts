@@ -1,8 +1,9 @@
 import { Activity, ScatterChart, Table, Workflow } from "lucide-react";
 
 export const navItems = [
+  { href: "/", label: "Datum Work", icon: Activity, description: "Pool work and local DATUM templates" },
   {
-    href: "/",
+    href: "/table",
     label: "Table",
     icon: Table,
     description: "Main view with table and timing chart",

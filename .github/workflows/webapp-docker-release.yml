@@ -1,14 +1,16 @@
-name: Build Multiarch Docker Image
+name: Publish Datum Work webapp image
 
 on:
   release:
     types: [published]
 
 env:
-  DOCKER_IMAGE: bboerst/stratum-work-webapp
+  DOCKER_IMAGE: ${{ vars.DATUM_WEBAPP_IMAGE }}
 
 jobs:
   build:
+    # Configure this fork's Docker Hub image repository before publishing releases.
+    if: ${{ vars.DATUM_WEBAPP_IMAGE != '' }}
     runs-on: ubuntu-latest
 
     steps:

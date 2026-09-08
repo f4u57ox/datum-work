@@ -1,14 +1,16 @@
-name: Build Multiarch Docker Image
+name: Publish Datum Work collector image
 
 on:
   release:
     types: [published]
 
 env:
-  DOCKER_IMAGE: bboerst/stratum-work-collector
+  DOCKER_IMAGE: ${{ vars.DATUM_COLLECTOR_IMAGE }}
 
 jobs:
   build:
+    # Configure this fork's Docker Hub image repository before publishing releases.
+    if: ${{ vars.DATUM_COLLECTOR_IMAGE != '' }}
     runs-on: ubuntu-latest
 
     steps:

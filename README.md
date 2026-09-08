@@ -1,8 +1,58 @@
-# Stratum Work
+# Datum Work
 
-Stratum Work is a web application that provides real-time visualizations of mining work notifications from Stratum mining pools. It allows users to monitor and analyze the mining activity of various pools in a user-friendly interface. All credit for this idea goes to `0xB10C` and his thread here: https://primal.net/e/note1qckcs4y67eyaawad96j7mxevucgygsfwxg42cvlrs22mxptrg05qtv0jz3. I'm merely copying his idea and putting it into a form where many people can access this data.
+Datum Work is a mining-work monitor for AlphaPool, PyBlock, XOR, and your own BLAKE2b block templates. The home dashboard brings these sources together while retaining their source and algorithm information. PyBlock defaults to its BLAKE2b WAVICLES endpoint at `b.pyblock.xyz:23115`; its SHA256 endpoint is a separate configuration described in [the monitor guide](monitor/README.md).
 
-## Architecture Overview
+This project is a fork of [bboerst/stratum-work](https://github.com/bboerst/stratum-work). The original Bitcoin Stratum dashboard remains available at `/table`. Credit for the original visualization idea belongs to [0xB10C](https://primal.net/e/note1qckcs4y67eyaawad96j7mxevucgygsfwxg42cvlrs22mxptrg05qtv0jz3), and for the upstream implementation to its contributors.
+
+## Run the Datum Work dashboard locally
+
+Use Node.js 22.14 or newer and Python 3.10 or newer. The monitor uses the Python standard library and needs no Python package installation. From this checkout:
+
+```sh
+cd web
+npm ci
+npx prisma generate
+npm run dev
+```
+
+Open [localhost:3000](http://localhost:3000). In a second terminal at the repository root, start the monitor:
+
+```sh
+python3 monitor/service.py
+```
+
+The web app reads the monitor at `http://127.0.0.1:8810` by default. For a different monitor address, set `DATUM_MONITOR_URL` when starting the web app. See [monitor/README.md](monitor/README.md) for pool endpoints, optional pool authorization, the SHA256 PyBlock override, and your own gateway template configuration.
+
+After installing the web dependencies, you can also start both local services from the repository root:
+
+```sh
+./run-local.sh --check
+./run-local.sh
+```
+
+The helper checks dependencies and refuses to start when either port is occupied. It binds both services to loopback and stops them together on Ctrl+C. Set `WEB_PORT=3001` or `DATUM_MONITOR_PORT=8811` to use different ports. `PYTHON_BIN` and `NODE_BIN` can select installed runtimes. Stop any separately started web app or monitor before using the helper.
+
+The legacy SHA256 view at `/table` requires the separate Bitcoin stack: configured collectors, RabbitMQ, MongoDB, and a Bitcoin node with RPC and ZMQ. It cannot show live or historical data from a web-only startup. The legacy stack and data flow are documented below.
+
+## Development checks
+
+From `web/`:
+
+```sh
+npm test
+npx tsc --noEmit
+npm run build
+```
+
+See [Helm deployment configuration](helm-charts/README.md) for fork-specific image repositories and publishing settings.
+
+## Legacy Stratum Work stack
+
+The following architecture and Docker Compose instructions describe the inherited Bitcoin Stratum application. They are separate from the Datum Work monitor service and its BLAKE2b template source.
+
+The inherited application visualizes `mining.notify` messages from Bitcoin Stratum pools and identifies the pools that mined confirmed blocks.
+
+### Architecture Overview
 
 Stratum Work consists of three main components:
 
@@ -10,7 +60,7 @@ Stratum Work consists of three main components:
 2. **Backend**: Processes Bitcoin blocks, identifies mining pools, and provides block data to the web application.
 3. **Web Application**: Displays real-time mining notifications and block information in an interactive interface.
 
-### Data Flow
+#### Data Flow
 
 1. Multiple collector instances connect to different mining pools
 2. When a pool sends a `mining.notify` message, the collector:
@@ -19,9 +69,9 @@ Stratum Work consists of three main components:
 3. The web application consumes these messages from RabbitMQ and displays them in real-time
 4. The backend processes new blocks from a Bitcoin node and identifies which pool mined each block
 
-## Technical Details
+### Technical Details
 
-### Stratum Protocol and Mining.Notify Messages
+#### Stratum Protocol and Mining.Notify Messages
 
 The Stratum protocol is used by mining pools to coordinate miners. The `mining.notify` message is particularly important as it contains the template for a new block that miners should work on. Each message contains:
 
@@ -34,11 +84,11 @@ The Stratum protocol is used by mining pools to coordinate miners. The `mining.n
 - **nTime**: Current timestamp
 - **Clean Jobs**: Boolean indicating if previous jobs should be discarded
 
-### Trustless Data Processing
+#### Trustless Data Processing
 
 A key design principle of Stratum Work is **trustless data processing**. While the server collects and streams the raw data, **all decoding, formatting, and visualization is performed in the client browser**.
 
-### Raw Data
+#### Raw Data
 
 The application provides a Server-Sent Events (SSE) endpoint:
 
@@ -48,15 +98,15 @@ GET /api/stream
 
 This endpoint delivers the same real-time data that powers the web interface, allowing for custom integrations or alternative visualizations.
 
-### Data Processing and Visualization
+#### Data Processing and Visualization
 
-#### Collector Processing
+##### Collector Processing
 
 The collector performs minimal processing to maintain data integrity:
 
 See [collector/main.py:294-323](collector/main.py#L294-L323) for the notification document creation function.
 
-#### Web Application Processing
+##### Web Application Processing
 
 The web application performs extensive processing to make the data more readable and visually informative:
 
@@ -75,13 +125,13 @@ The web application performs extensive processing to make the data more readable
 5. **Fee Rate Calculation**:  
    See [web/utils/bitcoinUtils.ts:142-168](web/utils/bitcoinUtils.ts#L161-L191)
 
-### Backend Block Processing
+#### Backend Block Processing
 
 The backend identifies which pool mined each block by analyzing the coinbase transaction:
 
 See [backend/main.py:815-890](backend/main.py#L814-L913) for the block processing function.
 
-### Backend Analytics Plug‑ins
+#### Backend Analytics Plug‑ins
 
 The backend supports a pluggable analytics system that runs whenever a new block is processed. These analytics inspect the set of `mining.notify` templates for the block’s height and may emit structured findings that get saved on the block document and forwarded to RabbitMQ.
 
@@ -108,7 +158,7 @@ The backend supports a pluggable analytics system that runs whenever a new block
   - `analysis.pool_identification`: richer object for the winning pool
     - `{ mining_pool: {...}, method: "address|tag", addresses_considered: [] }`
 
-#### Adding a New Analyzer
+##### Adding a New Analyzer
 
 1. Create a new module in `backend/analytics/`, e.g. `my_new_analysis.py`, and export a function that returns either a finding dict or `None`:
    ```python
@@ -142,7 +192,7 @@ Guidelines:
 - Prefer deterministic, height-scoped logic using the templates fetched for that block height.
 - Use the shared logger for traceability; avoid printing secrets.
 
-## Features
+### Features
 
 - Real-time display of `mining.notify` messages from Stratum pools
 - Customizable table columns for displaying relevant data
@@ -152,21 +202,20 @@ Guidelines:
 - Most 'work' is done client-side for trustless data processing
 - Raw data access via `/api/stream` endpoint
 
-## Local Development with Docker-Compose
+### Local Development with Docker-Compose
 
 To simplify local development and testing, you can use `docker-compose` to run all the components on your machine. This allows you to quickly spin up RabbitMQ, MongoDB, a web application container, and one or more collector containers.
 
-### Prerequisites
+#### Prerequisites
 
 - [Docker](https://docs.docker.com/get-docker/)
 - [Docker Compose](https://docs.docker.com/compose/install/)
 
-### Steps
+#### Steps
 
-1. **Clone the repository**:
+1. **Open your Datum Work checkout**:
    ```bash
-   git clone https://github.com/bboerst/stratum-work.git
-   cd stratum-work
+   cd datum-work
    ```
 2. **Customize collectors**:
 
@@ -199,7 +248,7 @@ To simplify local development and testing, you can use `docker-compose` to run a
 	- Start RabbitMQ, MongoDB, and your configured collectors.
 	- Start the web application.
 
-    Once everything is running, the web application should be accessible at http://localhost:3000.
+    Once everything is running, the web application should be accessible at http://localhost:3000/table.
 
 5. **View Logs**:
 
